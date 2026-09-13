@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# sshm - Interactive SSH Fuzzy Manager with Live Metadata Preview
+# Author: Zyekh Abdul (zyekhabdul)
+# Repository: https://github.com/zyekhabdul/sshm
+# License: MIT
+# ==============================================================================
+
+set -eo pipefail
+
+VERSION="1.1.0"
+CONFIG_FILE="${SSHM_CONFIG:-$HOME/.ssh/config}"
+PROMPT="${SSHM_PROMPT:-[ SSH Connect ] > }"
+PREVIEW_FIELDS="${SSHM_PREVIEW_FIELDS:-hostname|user|port|identityfile|proxyjump|forwardagent}"
+
+show_help() {
+    cat << 'EOF'
+sshm - Interactive SSH Fuzzy Manager with Live Metadata Preview
+
+USAGE:
+    sshm [OPTIONS] [SSH_OPTIONS] [HOST] [COMMAND]
+
+DESCRIPTION:
+    Quickly search and connect to SSH hosts configured in ~/.ssh/config using
+    an interactive fuzzy finder (fzf) with real-time metadata preview via ssh -G.
+
+OPTIONS:
+    -l, --list             List all detected SSH hosts (one per line)
+    -c, --config <FILE>    Use alternative SSH config file (default: ~/.ssh/config)
+    -h, --help             Show this help message and exit
+    -v, --version          Show version information
+
+ARGUMENT FORWARDING:
+    If a HOST is passed as an argument, sshm immediately forwards all arguments
+    to the native ssh client without launching the interactive fzf selector.
+    Any standard SSH flags (e.g. -p, -v, -L, -D) passed alongside are preserved.
+
+EXAMPLES:
+    sshm                   # Interactive fuzzy host selector with preview
+    sshm -l                # Output plain list of configured hosts
+    sshm -c ~/.ssh/work    # Use custom SSH config file
+    sshm servv             # Direct connect to 'servv' (bypasses fzf)
+    sshm servv "uname -a"  # Direct command execution on 'servv'
+    sshm -v -p 2222 host   # Forward SSH options to native ssh command
+
+ENVIRONMENT VARIABLES:
+    SSHM_CONFIG            Custom path to default SSH configuration file
+    SSHM_PROMPT            Custom fzf prompt (default: "[ SSH Connect ] > ")
+    SSHM_PREVIEW_FIELDS    Regex pattern of fields to show in preview
+
+DEPENDENCIES:
+    - bash (>= 4.0)
+    - openssh (ssh)
+    - fzf (for interactive mode)
+EOF
+}
+
+show_version() {
+    echo "sshm v${VERSION}"
+}
+
+# Recursively extracts Host directives from ssh_config, resolving Include statements
+extract_hosts() {
+    local file="$1"
+    local dir
+    dir="$(dirname "$file")"
+    [[ ! -f "$file" ]] && return 0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Trim leading and trailing whitespace
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+        local first="${line%%[[:space:]]*}"
+        local rest="${line#*[[:space:]]}"
+
+        if [[ "${first,,}" == "include" ]]; then
+            local inc_pattern="${rest/#\~/$HOME}"
+            [[ "$inc_pattern" != /* ]] && inc_pattern="$dir/$inc_pattern"
+            set +f
+            for inc in $inc_pattern; do
+                set -f
+                [[ -f "$inc" ]] && extract_hosts "$inc"
+            done
+            set -f
+        elif [[ "${first,,}" == "host" ]]; then
+            for h in $rest; do
+                if [[ "$h" != *[*?]* && "$h" != !* ]]; then
+                    echo "$h"
+                fi
+            done
+        fi
+    done < "$file"
+}
+
+get_hosts() {
+    set -f
+    extract_hosts "$CONFIG_FILE" | awk '!seen[$0]++'
+    set +f
+}
+
+# Parse custom sshm options while allowing SSH options to pass through
+EXTRA_SSH_ARGS=()
+LIST_MODE=0
+TARGET_HOST=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -v|--version)
+            show_version
+            exit 0
+            ;;
+        -l|--list)
+            LIST_MODE=1
+            shift
+            ;;
+        -c|--config)
+            if [[ -n "$2" ]]; then
+                CONFIG_FILE="$2"
+                shift 2
+            else
+                echo "sshm: error: -c/--config requires a file argument" >&2
+                exit 1
+            fi
+            ;;
+        --)
+            shift
+            EXTRA_SSH_ARGS+=("$@")
+            break
+            ;;
+        -*)
+            EXTRA_SSH_ARGS+=("$1")
+            shift
+            ;;
+        *)
+            # Non-option argument: treated as target host
+            TARGET_HOST="$1"
+            shift
+            EXTRA_SSH_ARGS+=("$@")
+            break
+            ;;
+    esac
+done
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "sshm: error: SSH config file not found: $CONFIG_FILE" >&2
+    exit 1
+fi
+
+if [[ "$LIST_MODE" -eq 1 ]]; then
+    get_hosts
+    exit 0
+fi
+
+# Direct host passed: forward directly to native ssh
+if [[ -n "$TARGET_HOST" ]]; then
+    exec ssh "${EXTRA_SSH_ARGS[@]}" "$TARGET_HOST"
+fi
+
+# Interactive mode requires fzf
+if ! command -v fzf >/dev/null 2>&1; then
+    echo "sshm: error: 'fzf' is required for interactive selection." >&2
+    echo "Please install fzf (e.g. 'sudo pacman -S fzf' or 'brew install fzf') or specify host directly." >&2
+    exit 1
+fi
+
+HOST_LIST="$(get_hosts)"
+
+if [[ -z "$HOST_LIST" ]]; then
+    echo "sshm: warning: no hosts found in $CONFIG_FILE" >&2
+    exit 0
+fi
+
+# Preview script executed by fzf for each selected candidate
+PREVIEW_CMD='ssh -F "'"$CONFIG_FILE"'" -G {} 2>/dev/null | grep -E "^('"$PREVIEW_FIELDS"') " | awk "{printf \"  %-14s %s\n\", \$1, \$2}"'
+
+SELECTED_TARGET=$(echo "$HOST_LIST" | fzf \
+    --prompt="$PROMPT" \
+    --height=55% \
+    --layout=reverse \
+    --border=rounded \
+    --header="[ ENTER: Connect | ESC: Abort ]" \
+    --preview="$PREVIEW_CMD" \
+    --preview-window=right:55%:border-left)
+
+if [[ -n "$SELECTED_TARGET" ]]; then
+    echo "[ NOTE ] Connecting to: $SELECTED_TARGET"
+    if [[ ${#EXTRA_SSH_ARGS[@]} -gt 0 ]]; then
+        exec ssh -F "$CONFIG_FILE" "${EXTRA_SSH_ARGS[@]}" "$SELECTED_TARGET"
+    else
+        exec ssh -F "$CONFIG_FILE" "$SELECTED_TARGET"
+    fi
+fi
