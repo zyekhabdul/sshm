@@ -1,20 +1,15 @@
-#!/usr/bin/env bash
-# Termux installer script for sshm
-set -euo pipefail
+# Termux package definition for sshm
+TERMUX_PKG_HOMEPAGE=https://github.com/zyekhabdul/sshm
+TERMUX_PKG_DESCRIPTION="Interactive SSH Fuzzy Manager with Live Metadata Preview via fzf and ssh -G"
+TERMUX_PKG_LICENSE="MIT"
+TERMUX_PKG_MAINTAINER="zyekhabdul <zyekhabdulqadirjailani@gmail.com>"
+TERMUX_PKG_VERSION=1.1.0
+TERMUX_PKG_SRCURL=https://github.com/zyekhabdul/sshm/archive/refs/tags/v${TERMUX_PKG_VERSION}.tar.gz
+TERMUX_PKG_SHA256=SKIP
+TERMUX_PKG_DEPENDS="bash, openssh, fzf"
+TERMUX_PKG_PLATFORM_INDEPENDENT=true
+TERMUX_PKG_BUILD_IN_SRC=true
 
-PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
-BINDIR="$PREFIX/bin"
-
-echo "==> Installing sshm for Termux in $BINDIR..."
-mkdir -p "$BINDIR"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-install -m 755 "$SCRIPT_DIR/bin/sshm" "$BINDIR/sshm"
-
-echo "==> Verifying dependencies in Termux..."
-if ! command -v fzf >/dev/null 2>&1; then
-    echo "==> Warning: fzf is not installed. Installing via pkg..."
-    pkg install -y fzf openssh
-fi
-
-echo "==> Success! Run 'sshm' to launch."
+termux_step_make_install() {
+    install -Dm755 bin/sshm "$TERMUX_PREFIX/bin/sshm"
+}
