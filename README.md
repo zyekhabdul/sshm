@@ -64,7 +64,7 @@ brew install packaging/homebrew/sshm.rb
 ### Option 5: Termux (Android)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zyekhabdul/sshm/main/packaging/termux/build.sh | bash
+curl -fsSL https://raw.githubusercontent.com/zyekhabdul/sshm/main/install.sh | bash
 ```
 
 ### Option 6: Manual Clone (Makefile)
