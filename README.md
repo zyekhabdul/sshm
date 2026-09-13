@@ -24,21 +24,57 @@ Interactive SSH Host Manager with live metadata preview powered by `fzf` and `ss
 
 ## Installation
 
-### Method 1: Quick Install (via Makefile)
+### Option 1: 1-Line Standalone Installer (Linux / macOS / Termux)
 
 ```bash
-git clone git@github.com:zyekhabdul/sshm.git
+curl -fsSL https://raw.githubusercontent.com/zyekhabdul/sshm/main/install.sh | bash
+```
+
+### Option 2: Arch Linux (AUR & PKGBUILD)
+
+```bash
+# Using an AUR helper:
+yay -S sshm-git
+# or paru -S sshm-git
+
+# Manual PKGBUILD build:
+git clone https://github.com/zyekhabdul/sshm.git
+cd sshm/packaging/aur-git
+makepkg -si
+```
+
+### Option 3: Debian / Ubuntu (.deb)
+
+Download and install the prebuilt `.deb` package from releases or build locally:
+
+```bash
+# Build locally:
+bash packaging/debian/build-deb.sh
+sudo dpkg -i packaging/debian/sshm_1.1.0_all.deb
+```
+
+### Option 4: macOS / Linux Homebrew
+
+```bash
+brew install zyekhabdul/tap/sshm
+# Or install directly from formula:
+brew install packaging/homebrew/sshm.rb
+```
+
+### Option 5: Termux (Android)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zyekhabdul/sshm/main/packaging/termux/build.sh | bash
+```
+
+### Option 6: Manual Clone (Makefile)
+
+```bash
+git clone https://github.com/zyekhabdul/sshm.git
 cd sshm
 make install
 ```
 *Installs by default to `~/.local/bin/sshm`. For system-wide install, run `sudo make install PREFIX=/usr/local`.*
-
-### Method 2: Manual Direct Download
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/zyekhabdul/sshm/main/bin/sshm -o ~/.local/bin/sshm
-chmod +x ~/.local/bin/sshm
-```
 
 ## Usage
 

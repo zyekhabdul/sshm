@@ -1,0 +1,27 @@
+# Maintainer: zyekhabdul <zyekhabdulqadirjailani@gmail.com>
+pkgname=sshm-git
+pkgver=1.1.0.r0.g29c7526
+pkgrel=1
+pkgdesc="Interactive SSH Fuzzy Manager with Live Metadata Preview via fzf and ssh -G (VCS git version)"
+arch=('any')
+url="https://github.com/zyekhabdul/sshm"
+license=('MIT')
+depends=('bash' 'openssh' 'fzf')
+makedepends=('git')
+provides=('sshm')
+conflicts=('sshm')
+source=('git+https://github.com/zyekhabdul/sshm.git')
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/sshm"
+    git describe --long --tags --abbrev=7 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' ||
+    printf "1.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+package() {
+    cd "$srcdir/sshm"
+    install -Dm755 bin/sshm "$pkgdir/usr/bin/sshm"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
