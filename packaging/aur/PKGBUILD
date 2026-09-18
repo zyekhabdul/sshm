@@ -8,7 +8,7 @@ url="https://github.com/zyekhabdul/sshm"
 license=('MIT')
 depends=('bash' 'openssh' 'fzf')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('5389f8a16944cafbe0fb440c6eb48b9a003e8a06996a526df8050089be789b35')
 
 package() {
     cd "$pkgname-$pkgver"
